@@ -64,8 +64,8 @@ namespace :launch do
         
     aws_cfg
         
-    # Filters out all AWS resources not tagged with 'tagkey' (OR 'tagvalue')
-    snapswithtag = @ec2.tags.filter('key', tagkey).map(&:resource).sort_by(&:start_time)
+    # Filters out all ec2 snapshots not tagged with both "AutoSnapshot" AND Name: "lineage"
+    snapswithtag = @ec2.snapshots.tagged(tagkey).tagged("Name").tagged_values(lineage).map.sort_by(&:start_time)
         
     #------------------------------------------------------------
         
@@ -74,8 +74,7 @@ namespace :launch do
     weekly = []
     monthly = []
         
-    # Which snapshots are being kept/deleted?        
-    day_keep = []
+    # Which snapshots are being kept/deleted?
     week_keep = []    
     month_temp = []
     month_keep = []
@@ -87,8 +86,6 @@ namespace :launch do
     today = Time.now.to_date
     one_wk_ago = today - 7    
     this_month = today.month
-    # Used for finding the oldest month to keep
-    n_month_backups = months_to_keep - 1
        
     #------------------------------------------------------------
         
@@ -113,7 +110,6 @@ namespace :launch do
         puts "Keeping snapshots from within the last week."
             
         daily.each do |s|
-            day_keep.push(s)
             puts "#{s.start_time}: #{s.id} from #{s.volume_id}"
         end
         puts
@@ -139,7 +135,7 @@ namespace :launch do
     if !monthly.empty?
             
         monthly.each do |s|
-            if (((today.months_ago(n_month_backups))..(today)) === s.start_time.to_date)
+            if (s.start_time.to_date >= (today.months_ago(months_to_keep).beginning_of_month))
                 month_temp.push(s)
             else 
                 purge.push(s)
@@ -169,7 +165,7 @@ namespace :launch do
         puts
     end
         
-    puts "Keeping #{day_keep.count + week_keep.count + month_keep.count} snapshots.\n\n" 
+    puts "Keeping #{daily.count + week_keep.count + month_keep.count} snapshots.\n\n" 
         
     #------------------------------------------------------------
         
