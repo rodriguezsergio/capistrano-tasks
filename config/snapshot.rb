@@ -127,6 +127,21 @@ namespace :launch do
                 purge.push(s)
             end
         end
+        
+        weekly_hash = Hash[purge.group_by{|s| s.start_time.year}.map{|year, snapshots| [year, snapshots.group_by{|s| s.start_time.to_date.cweek}]}]
+
+        # Ensure that at least 1 weekly snapshot is kept        
+        weekly_hash.each_value  do |week|
+                week.each_value do |snaparray|
+                        if snaparray.count == 1
+                                snaparray.each do |s|
+                                        puts "#{s.start_time}: #{s.id} from #{s.volume_id}"
+                                        week_keep.push(s)
+                                        purge.delete(s)
+                                end
+                        end
+                end
+        end
         puts
     end
         
