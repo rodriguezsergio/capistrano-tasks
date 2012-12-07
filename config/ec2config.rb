@@ -28,6 +28,7 @@ set :tagkey, 'AutoSnapshot'
 set :tagvalue, 'VALUE' # Not used by default, but can be used in place of :tagkey
 
 set :dayofwk, 1
+set :weeks_to_keep, 6
 # For Weekly Snapshots. Choose which day of the week you would like to keep. 0 == Sunday
 
 set :months_to_keep, 6

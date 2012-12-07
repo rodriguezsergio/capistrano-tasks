@@ -84,8 +84,7 @@ namespace :launch do
     #------------------------------------------------------------
         
     today = Time.now.to_date
-    one_wk_ago = today - 7    
-    this_month = today.month
+    one_wk_ago = today - 7 
        
     #------------------------------------------------------------
         
@@ -95,7 +94,7 @@ namespace :launch do
         snaptime = s.start_time.to_date
             if snaptime > one_wk_ago
                 daily.push(s)
-            elsif ((snaptime <= one_wk_ago) && (snaptime.month == this_month))
+            elsif ((snaptime <= one_wk_ago) && (snaptime >= today.weeks_ago(weeks_to_keep)))
                 weekly.push(s)
             else
                 monthly.push(s)
