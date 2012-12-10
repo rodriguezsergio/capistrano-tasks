@@ -13,7 +13,7 @@ namespace :launch do
       config = YAML.load(File.read('aws.yml'))
       AWS.config(config)
       @ec2 = AWS::EC2.new
-
+              
   end
     
     
@@ -42,7 +42,7 @@ namespace :launch do
     begin
       #Class: AWS::EC2::Snapshot - #create_snapshot
       new_snapshot = dev_vol.create_snapshot("Auto Snapshot of #{lineage} from #{dev_vol.id} @ #{Time.now}")
-         
+
       new_snapshot.tag('Name', :value => "#{lineage}")
       new_snapshot.tag('Timestamp', :value=> "#{Time.now}")
       new_snapshot.tag('Mountpoint', :value => "#{mntpoint}")
@@ -59,14 +59,15 @@ namespace :launch do
       
   end   
 
+
   desc 'Purge Old Snapshots'
   task :purge, :roles => :db do
         
     aws_cfg
-        
+
     # Filters out all ec2 snapshots not tagged with both "AutoSnapshot" AND Name: "lineage"
     snapswithtag = @ec2.snapshots.tagged(tagkey).tagged("Name").tagged_values(lineage).map.sort_by(&:start_time)
-        
+
     #------------------------------------------------------------
         
     # Sorts snapshots
@@ -94,7 +95,7 @@ namespace :launch do
         snaptime = s.start_time.to_date
             if snaptime > one_wk_ago
                 daily.push(s)
-            elsif ((snaptime <= one_wk_ago) && (snaptime >= today.weeks_ago(weeks_to_keep)))
+            elsif (snaptime >= today.weeks_ago(weeks_to_keep).beginning_of_week)
                 weekly.push(s)
             else
                 monthly.push(s)
@@ -117,35 +118,26 @@ namespace :launch do
         
     if !weekly.empty?
         puts "Keeping the following weekly snapshots."
-            
-        weekly.each do |s|
-            snapday = s.start_time.wday
-            if snapday == dayofwk
-                week_keep.push(s)
-                puts "#{s.start_time}: #{s.id} from #{s.volume_id}"
-            else
-                purge.push(s)
-            end
-        end
         
-        weekly_hash = Hash[purge.group_by{|s| s.start_time.year}.map{|year, snapshots| [year, snapshots.group_by{|s| s.start_time.to_date.cweek}]}]
+        weekly_hash = Hash[weekly.group_by{|s| s.start_time.year}.map{|year, snapshots| [year, snapshots.group_by{|s| s.start_time.to_date.cweek}]}]
 
         # Ensure that at least 1 weekly snapshot is kept        
         weekly_hash.each_value  do |week|
-                week.each_value do |snaparray|
-                        if snaparray.count == 1
-                                snaparray.each do |s|
-                                        puts "#{s.start_time}: #{s.id} from #{s.volume_id}"
-                                        week_keep.push(s)
-                                        purge.delete(s)
-                                end
-                        end
+            week.each_value do |snaparray|
+                snaparray.each do |s|
+                    if s == snaparray.first
+                        puts "#{s.start_time}: #{s.id} from #{s.volume_id}"
+                        week_keep.push(s)
+                    else
+                        purge.push(s)
+                    end
                 end
+            end
         end
         puts
     end
-        
-        
+
+
     if !monthly.empty?
             
         monthly.each do |s|
@@ -160,10 +152,8 @@ namespace :launch do
             
         h.each_value do |month|
             month.each_value do |array|
-                first = array.first
-                    
                     array.each do |array_item|
-                        if array_item == first
+                        if array_item == array.first
                             month_keep.push(array_item)
                         else
                             purge.push(array_item)
